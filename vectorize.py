@@ -1,7 +1,6 @@
 import asyncio
 import asyncpg
 import os
-import numpy as np
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
@@ -24,7 +23,9 @@ def generate_embedding(model, title, description):
         return None
 
     embedding = model.encode(combined_text, convert_to_numpy=True)
-    return embedding.tolist()
+    # Convert to string format for PostgreSQL vector type
+    vector_str = '[' + ','.join(map(str, embedding.tolist())) + ']'
+    return vector_str
 
 
 async def main():
@@ -330,7 +331,7 @@ async def main():
                         # Update the post with its embedding
                         await conn.execute("""
                             UPDATE social_search_prefs
-                            SET qwen_vector = $1::vector
+                            SET qwen_vector = $1
                             WHERE id = $2
                         """, embedding, row['id'])
 
