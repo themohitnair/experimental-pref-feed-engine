@@ -1,23 +1,25 @@
-from transformers import AutoModel, AutoTokenizer
-from sentence_transformers import SentenceTransformer
+from transformers import AutoTokenizer, AutoModel
+from sentence_transformers import SentenceTransformer, models
 import numpy as np
+from transformers import BitsAndBytesConfig
 
-# 1. Load quantized HF model
 model_id = "Qwen/Qwen3-Embedding-8B"
 
-hf_model = AutoModel.from_pretrained(
-    model_id,
-    trust_remote_code=True,
-    load_in_8bit=True,  # quantization happens here
-    device_map="auto",
+# 1. Quantization config
+bnb_config = BitsAndBytesConfig(load_in_8bit=True)  # or load_in_4bit=True
+
+# 2. Build Transformer module (with quantization)
+word_embedding_model = models.Transformer(
+    model_id, trust_remote_code=True, device="cuda", quantization_config=bnb_config
 )
 
-tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+# 3. Add pooling layer (to get sentence embeddings)
+pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension())
 
-# 2. Wrap into SentenceTransformer
-model = SentenceTransformer(modules=[hf_model], tokenizer=tokenizer)
+# 4. Wrap into SentenceTransformer
+model = SentenceTransformer(modules=[word_embedding_model, pooling_model])
 
-# 3. Encode queries/documents
+# 5. Test with queries + docs
 queries = ["What is the capital of France?", "How does a transformer model work?"]
 documents = [
     "Paris is the capital and most populous city of France.",
@@ -31,7 +33,7 @@ print("Shape of query embeddings:", query_embeddings.shape)
 print("Shape of document embeddings:", document_embeddings.shape)
 
 
-# 4. Cosine similarity
+# 6. Cosine similarity
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
