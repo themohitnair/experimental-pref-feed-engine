@@ -6,13 +6,10 @@ from sentence_transformers import SentenceTransformer
 
 
 def load_qwen_model():
-    print("Loading Qwen2.5-Coder-7B-Instruct model in 8-bit...")
+    print("Loading Qwen3-Embedding-8B model in 8-bit...")
     model = SentenceTransformer(
-        'Qwen/Qwen2.5-Coder-7B-Instruct',
-        model_kwargs={
-            'load_in_8bit': True,
-            'device_map': 'auto'
-        }
+        "Qwen/Qwen3-Embedding-8B",
+        model_kwargs={"load_in_8bit": True, "device_map": "auto"},
     )
     return model
 
@@ -23,9 +20,7 @@ def generate_embedding(model, title, description):
         return None
 
     embedding = model.encode(combined_text, convert_to_numpy=True)
-    # Convert to string format for PostgreSQL vector type
-    vector_str = '[' + ','.join(map(str, embedding.tolist())) + ']'
-    return vector_str
+    return embedding.tolist()
 
 
 async def main():
@@ -249,7 +244,9 @@ async def main():
         """)
 
         if unembedded_count > 0:
-            print(f"Found {unembedded_count} posts without embeddings. Generating vectors...")
+            print(
+                f"Found {unembedded_count} posts without embeddings. Generating vectors..."
+            )
 
             # Load the model
             model = load_qwen_model()
@@ -275,11 +272,13 @@ async def main():
                     END
             """)
 
-            available_columns = [row['column_name'] for row in column_check]
+            available_columns = [row["column_name"] for row in column_check]
             print(f"Available text columns: {available_columns}")
 
             if not available_columns:
-                print("Warning: No title, description, content, text, or body columns found!")
+                print(
+                    "Warning: No title, description, content, text, or body columns found!"
+                )
                 # Let's see all available columns
                 all_columns = await conn.fetch("""
                     SELECT column_name FROM information_schema.columns
@@ -307,7 +306,7 @@ async def main():
             while processed < unembedded_count:
                 # Get a batch of unembedded posts
                 query = f"""
-                    SELECT {', '.join(select_cols)}
+                    SELECT {", ".join(select_cols)}
                     FROM social_search_prefs
                     WHERE qwen_vector IS NULL
                     ORDER BY id
@@ -318,7 +317,9 @@ async def main():
                 if not batch:
                     break
 
-                print(f"Processing batch {processed//batch_size + 1} ({len(batch)} posts)...")
+                print(
+                    f"Processing batch {processed // batch_size + 1} ({len(batch)} posts)..."
+                )
 
                 # Generate embeddings for this batch
                 for row in batch:
@@ -329,14 +330,20 @@ async def main():
 
                     if embedding:
                         # Update the post with its embedding
-                        await conn.execute("""
+                        await conn.execute(
+                            """
                             UPDATE social_search_prefs
-                            SET qwen_vector = $1
+                            SET qwen_vector = $1::vector
                             WHERE id = $2
-                        """, embedding, row['id'])
+                        """,
+                            embedding,
+                            row["id"],
+                        )
 
                 processed += len(batch)
-                print(f"Progress: {processed}/{unembedded_count} posts processed ({processed/unembedded_count*100:.1f}%)")
+                print(
+                    f"Progress: {processed}/{unembedded_count} posts processed ({processed / unembedded_count * 100:.1f}%)"
+                )
 
             print("Embedding generation completed!")
         else:
