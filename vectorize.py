@@ -7,8 +7,14 @@ from sentence_transformers import SentenceTransformer
 
 
 def load_qwen_model():
-    print("Loading Qwen2.5-Coder-7B-Instruct model...")
-    model = SentenceTransformer('Qwen/Qwen2.5-Coder-7B-Instruct')
+    print("Loading Qwen2.5-Coder-7B-Instruct model in 8-bit...")
+    model = SentenceTransformer(
+        'Qwen/Qwen2.5-Coder-7B-Instruct',
+        model_kwargs={
+            'load_in_8bit': True,
+            'device_map': 'auto'
+        }
+    )
     return model
 
 
