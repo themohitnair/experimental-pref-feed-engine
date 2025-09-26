@@ -1,7 +1,6 @@
 import asyncio
 import asyncpg
 import os
-import time
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
@@ -22,7 +21,7 @@ def generate_embedding(model, title, description):
 
     embedding = model.encode(combined_text, convert_to_numpy=True)
     # Convert to PostgreSQL vector format
-    vector_str = '[' + ','.join(map(str, embedding.tolist())) + ']'
+    vector_str = "[" + ",".join(map(str, embedding.tolist())) + "]"
     return vector_str
 
 
@@ -307,8 +306,6 @@ async def main():
                 select_cols.append(desc_col)
 
             while processed < unembedded_count:
-                batch_start_time = time.time()
-
                 # Get a batch of unembedded posts
                 query = f"""
                     SELECT {", ".join(select_cols)}
@@ -322,8 +319,9 @@ async def main():
                 if not batch:
                     break
 
-                batch_num = processed // batch_size + 1
-                print(f"Processing batch {batch_num} ({len(batch)} posts)...")
+                print(
+                    f"Processing batch {processed // batch_size + 1} ({len(batch)} posts)..."
+                )
 
                 # Generate embeddings for this batch
                 for row in batch:
@@ -337,7 +335,7 @@ async def main():
                         await conn.execute(
                             """
                             UPDATE social_search_prefs
-                            SET qwen_vector = $1
+                            SET qwen_vector = $1::vector
                             WHERE id = $2
                         """,
                             embedding,
@@ -345,22 +343,9 @@ async def main():
                         )
 
                 processed += len(batch)
-                batch_time = time.time() - batch_start_time
-                posts_per_second = len(batch) / batch_time
-
-                print(f"Batch {batch_num} completed in {batch_time:.2f}s ({posts_per_second:.1f} posts/sec)")
-                print(f"Progress: {processed}/{unembedded_count} posts processed ({processed / unembedded_count * 100:.1f}%)")
-
-                # Estimate remaining time
-                if processed > 0:
-                    avg_time_per_post = (time.time() - (batch_start_time - batch_time)) / processed
-                    remaining_posts = unembedded_count - processed
-                    estimated_remaining_time = remaining_posts * avg_time_per_post
-                    hours, remainder = divmod(int(estimated_remaining_time), 3600)
-                    minutes, seconds = divmod(remainder, 60)
-                    print(f"Estimated time remaining: {hours:02d}:{minutes:02d}:{seconds:02d}")
-
-                print("-" * 50)
+                print(
+                    f"Progress: {processed}/{unembedded_count} posts processed ({processed / unembedded_count * 100:.1f}%)"
+                )
 
             print("Embedding generation completed!")
         else:

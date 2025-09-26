@@ -153,11 +153,12 @@ async def get_html():
 
                     if (username === 'user1') {
                         user1Posts = posts;
+                        await renderFeed('user1', user1Posts);
                     } else {
                         user2Posts = posts;
+                        await renderFeed('user2', user2Posts);
                     }
 
-                    await renderFeeds();
                     showStatus(`${username} feed refreshed with personalized recommendations!`);
                 } catch (error) {
                     showStatus('Error refreshing feed: ' + error.message, true);
@@ -207,9 +208,8 @@ async def get_html():
                     </div>
                     <div class="post-actions">
                         <button class="like-btn ${isLiked ? 'liked' : 'not-liked'}"
-                                onclick="likePost('${username}', ${post.id}, this)"
-                                ${isLiked ? 'disabled' : ''}>
-                            ${isLiked ? '❤️ Liked' : '👍 Like'}
+                                onclick="${isLiked ? 'unlikePost' : 'likePost'}('${username}', ${post.id}, this)">
+                            ${isLiked ? '💔 Unlike' : '👍 Like'}
                         </button>
                     </div>
                 `;
@@ -233,8 +233,8 @@ async def get_html():
                     if (response.ok) {
                         // Update button state
                         buttonElement.className = 'like-btn liked';
-                        buttonElement.innerHTML = '❤️ Liked';
-                        buttonElement.disabled = true;
+                        buttonElement.innerHTML = '💔 Unlike';
+                        buttonElement.onclick = () => unlikePost(username, postId, buttonElement);
 
                         showStatus(`${username} liked post! Vector updated with preferences.`);
                     } else {
@@ -242,6 +242,35 @@ async def get_html():
                     }
                 } catch (error) {
                     showStatus('Error liking post: ' + error.message, true);
+                }
+            }
+
+            async function unlikePost(username, postId, buttonElement) {
+                try {
+                    const response = await fetch('/unlike', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            username: username,
+                            post_id: postId
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                        // Update button state
+                        buttonElement.className = 'like-btn not-liked';
+                        buttonElement.innerHTML = '👍 Like';
+                        buttonElement.onclick = () => likePost(username, postId, buttonElement);
+
+                        showStatus(`${username} unliked post! Vector preferences reversed.`);
+                    } else {
+                        showStatus('Error: ' + result.detail, true);
+                    }
+                } catch (error) {
+                    showStatus('Error unliking post: ' + error.message, true);
                 }
             }
 
@@ -271,7 +300,7 @@ async def get_posts():
             FROM social_search_prefs
             WHERE qwen_vector IS NOT NULL
             ORDER BY RANDOM()
-            LIMIT 20
+            LIMIT 15
         """)
 
         # Add zero similarity score for initial random posts
@@ -321,7 +350,7 @@ async def get_personalized_feed(username: str):
         # Sort by similarity score (highest first)
         scored_posts.sort(key=lambda x: x['similarity_score'], reverse=True)
 
-        return scored_posts[:20]  # Return top 20
+        return scored_posts[:15]  # Return top 15
     finally:
         await conn.close()
 
@@ -409,6 +438,72 @@ async def like_post(request: LikeRequest):
 
         return {
             "message": f"User {request.username} liked post {request.post_id}. Vector updated!"
+        }
+
+    finally:
+        await conn.close()
+
+@app.post("/unlike")
+async def unlike_post(request: LikeRequest):
+    """Handle user unliking a post - reverses the vector operation"""
+    if request.username not in user_vectors:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    conn = await get_db_connection()
+    try:
+        # Check if the user actually liked this post
+        user_id = await conn.fetchval(
+            "SELECT id FROM user_prefs_api WHERE username = $1", request.username
+        )
+
+        liked = await conn.fetchval("""
+            SELECT EXISTS(
+                SELECT 1 FROM user_likes
+                WHERE user_id = $1 AND post_id = $2
+            )
+        """, user_id, request.post_id)
+
+        if not liked:
+            raise HTTPException(status_code=400, detail="Post not liked by user")
+
+        # Get the post vector
+        post_data = await conn.fetchrow(
+            "SELECT qwen_vector FROM social_search_prefs WHERE id = $1",
+            request.post_id,
+        )
+
+        if not post_data:
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        # Parse post vector
+        post_vector_str = post_data["qwen_vector"]
+        post_vector = np.array(eval(post_vector_str))
+
+        # Get current user vector
+        current_user_vector = user_vectors[request.username]
+
+        # Reverse the averaging operation: if new_vec = (old_vec + post_vec) / 2
+        # then old_vec = 2 * new_vec - post_vec
+        updated_vector = 2 * current_user_vector - post_vector
+        user_vectors[request.username] = updated_vector
+
+        # Update database
+        updated_vector_str = "[" + ",".join(map(str, updated_vector.tolist())) + "]"
+        await conn.execute(
+            "UPDATE user_prefs_api SET user_vector = $1 WHERE username = $2",
+            updated_vector_str,
+            request.username,
+        )
+
+        # Remove the like record
+        await conn.execute(
+            "DELETE FROM user_likes WHERE user_id = $1 AND post_id = $2",
+            user_id,
+            request.post_id,
+        )
+
+        return {
+            "message": f"User {request.username} unliked post {request.post_id}. Vector updated!"
         }
 
     finally:
