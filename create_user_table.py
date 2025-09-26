@@ -111,10 +111,15 @@ async def main():
 
         else:
             print("User_likes table already exists.")
+            # Flush all existing likes
+            print("Flushing all existing user likes...")
+            result = await conn.execute("DELETE FROM user_likes")
+            deleted_count = int(result.split()[-1])  # Extract count from "DELETE n"
+            print(f"Deleted {deleted_count} existing likes")
 
         # Display current users
         users = await conn.fetch("SELECT id, username, created_at FROM user_prefs_api ORDER BY id")
-        print(f"\nCurrent users in database:")
+        print("\nCurrent users in database:")
         for user in users:
             print(f"  ID: {user['id']}, Username: {user['username']}, Created: {user['created_at']}")
 
