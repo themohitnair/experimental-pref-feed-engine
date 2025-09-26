@@ -79,8 +79,8 @@ async def get_html():
             body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
             .container { max-width: 1400px; margin: 0 auto; }
             .header { text-align: center; margin-bottom: 30px; }
-            .feeds-container { display: flex; gap: 20px; }
-            .user-feed { flex: 1; background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .feeds-container { display: flex; gap: 20px; justify-content: center; }
+            .user-feed { width: 500px; background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
             .feed-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
             .refresh-btn { background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; }
             .refresh-btn:hover { background: #218838; }
