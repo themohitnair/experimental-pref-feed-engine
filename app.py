@@ -406,8 +406,9 @@ async def like_post(request: LikeRequest):
         # Get current user vector
         current_user_vector = user_vectors[request.username]
 
-        # Average the vectors (simple preference update)
-        updated_vector = (current_user_vector + post_vector) / 2
+        # Exponential moving average (learning rate approach)
+        alpha = 0.15  # Learning rate - gives more weight to recent interactions
+        updated_vector = alpha * post_vector + (1 - alpha) * current_user_vector
         user_vectors[request.username] = updated_vector
 
         # Update database
@@ -482,9 +483,10 @@ async def unlike_post(request: LikeRequest):
         # Get current user vector
         current_user_vector = user_vectors[request.username]
 
-        # Reverse the averaging operation: if new_vec = (old_vec + post_vec) / 2
-        # then old_vec = 2 * new_vec - post_vec
-        updated_vector = 2 * current_user_vector - post_vector
+        # Reverse the exponential moving average: if new_vec = α * post_vec + (1-α) * old_vec
+        # then old_vec = (new_vec - α * post_vec) / (1-α)
+        alpha = 0.15  # Same learning rate as in like operation
+        updated_vector = (current_user_vector - alpha * post_vector) / (1 - alpha)
         user_vectors[request.username] = updated_vector
 
         # Update database
