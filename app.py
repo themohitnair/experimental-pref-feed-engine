@@ -204,7 +204,7 @@ async def get_html():
                     </div>
                     <div class="post-content">
                         <h4>${post.title || 'No Title'}</h4>
-                        <p>${(post.description || 'No Description').substring(0, 150)}...</p>
+                        <p>${post.description || 'No Description'}</p>
                     </div>
                     <div class="post-actions">
                         <button class="like-btn ${isLiked ? 'liked' : 'not-liked'}"
