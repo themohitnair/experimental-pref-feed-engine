@@ -1,6 +1,7 @@
 import asyncio
 import asyncpg
 import os
+import time
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
@@ -306,6 +307,8 @@ async def main():
                 select_cols.append(desc_col)
 
             while processed < unembedded_count:
+                batch_start_time = time.time()
+
                 # Get a batch of unembedded posts
                 query = f"""
                     SELECT {", ".join(select_cols)}
@@ -319,9 +322,8 @@ async def main():
                 if not batch:
                     break
 
-                print(
-                    f"Processing batch {processed // batch_size + 1} ({len(batch)} posts)..."
-                )
+                batch_num = processed // batch_size + 1
+                print(f"Processing batch {batch_num} ({len(batch)} posts)...")
 
                 # Generate embeddings for this batch
                 for row in batch:
@@ -343,9 +345,22 @@ async def main():
                         )
 
                 processed += len(batch)
-                print(
-                    f"Progress: {processed}/{unembedded_count} posts processed ({processed / unembedded_count * 100:.1f}%)"
-                )
+                batch_time = time.time() - batch_start_time
+                posts_per_second = len(batch) / batch_time
+
+                print(f"Batch {batch_num} completed in {batch_time:.2f}s ({posts_per_second:.1f} posts/sec)")
+                print(f"Progress: {processed}/{unembedded_count} posts processed ({processed / unembedded_count * 100:.1f}%)")
+
+                # Estimate remaining time
+                if processed > 0:
+                    avg_time_per_post = (time.time() - (batch_start_time - batch_time)) / processed
+                    remaining_posts = unembedded_count - processed
+                    estimated_remaining_time = remaining_posts * avg_time_per_post
+                    hours, remainder = divmod(int(estimated_remaining_time), 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    print(f"Estimated time remaining: {hours:02d}:{minutes:02d}:{seconds:02d}")
+
+                print("-" * 50)
 
             print("Embedding generation completed!")
         else:
