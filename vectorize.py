@@ -20,7 +20,9 @@ def generate_embedding(model, title, description):
         return None
 
     embedding = model.encode(combined_text, convert_to_numpy=True)
-    return embedding.tolist()
+    # Convert to PostgreSQL vector format
+    vector_str = '[' + ','.join(map(str, embedding.tolist())) + ']'
+    return vector_str
 
 
 async def main():
@@ -333,7 +335,7 @@ async def main():
                         await conn.execute(
                             """
                             UPDATE social_search_prefs
-                            SET qwen_vector = $1::vector
+                            SET qwen_vector = $1
                             WHERE id = $2
                         """,
                             embedding,
