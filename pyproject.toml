@@ -1,0 +1,13 @@
+[project]
+name = "experimental-pref-feed-engine"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg>=0.30.0",
+    "dotenv>=0.9.9",
+    "fastapi>=0.117.1",
+    "sentence-transformers>=5.1.1",
+    "uvicorn>=0.37.0",
+]
