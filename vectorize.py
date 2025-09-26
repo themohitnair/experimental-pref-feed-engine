@@ -1,7 +1,9 @@
 from sentence_transformers import SentenceTransformer
 
 # 1. Load the model
-model = SentenceTransformer("Qwen/Qwen3-Embedding-8B", trust_remote_code=True)
+model = SentenceTransformer(
+    "Qwen/Qwen3-Embedding-8B", trust_remote_code=True, device="cuda", load_in_8bit=True
+)
 
 # 2. Prepare your texts
 queries = ["What is the capital of France?", "How does a transformer model work?"]
